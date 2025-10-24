@@ -1,0 +1,30 @@
+[package]
+name = "dbx_plugin_api"
+version = "0.1.0"
+edition = "2021"
+description = "Transport bindings, data models, and helper traits for building EventDBX plugins."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/eventdbx/dbx_plugins"
+keywords = ["eventdbx", "plugins", "transport", "grpc"]
+categories = ["network-programming", "asynchronous"]
+
+[dependencies]
+async-trait = "0.1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+capnp = "0.17"
+capnp-futures = "0.17"
+prost = "0.13"
+prost-types = "0.13"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tonic = { version = "0.12", default-features = false, features = ["codegen", "prost"] }
+thiserror = "1"
+tokio = { version = "1.45", features = ["net", "io-util"] }
+tokio-util = { version = "0.7", features = ["compat"] }
+futures = "0.3"
+
+[build-dependencies]
+capnpc = "0.17"
+tonic-build = { version = "0.12", default-features = false, features = ["prost"] }
+protoc-bin-vendored = "3"

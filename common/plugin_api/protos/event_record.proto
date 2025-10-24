@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package dbx.plugins;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+// Mirrors the EventDBX PluginEvent payload for gRPC clients.
+message EventRecord {
+  uint64 sequence = 1;
+  string aggregate_type = 2;
+  string aggregate_id = 3;
+  string event_type = 4;
+  uint64 event_version = 5;
+  string event_id = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Value payload_json = 8;
+  google.protobuf.Value metadata_json = 9;
+  string hash = 10;
+  string merkle_root = 11;
+  uint64 state_version = 12;
+  bool state_archived = 13;
+  string state_merkle_root = 14;
+  repeated StateEntry state_entries = 15;
+  google.protobuf.Value schema_json = 16;
+  google.protobuf.Value extensions_json = 17;
+}
+
+message StateEntry {
+  string key = 1;
+  string value = 2;
+}

@@ -1,0 +1,35 @@
+[package]
+name = "dbx_grpc"
+version = "0.1.0"
+edition = "2021"
+description = "gRPC agent serving EventDBX records via tonic-generated services."
+readme = "README.md"
+repository = "https://github.com/thachp/dbx_plugins"
+keywords = ["eventdbx", "grpc", "tonic"]
+categories = ["database"]
+authors = ["Patrick Thach <thachp@gmail.com>"]
+license = "MIT"
+
+
+[dependencies]
+anyhow = "1.0"
+clap = { version = "4.5", features = ["derive"] }
+dbx_plugin_api = { path = "../../common/plugin_api" }
+dbx_plugin_logging = { path = "../../common/logging" }
+serde_json = "1.0"
+tokio = { version = "1.45", features = ["rt-multi-thread", "macros", "signal", "net"] }
+tonic = { version = "0.12", features = ["transport"] }
+prost = "0.13"
+prost-types = "0.13"
+tracing = "0.1"
+
+[build-dependencies]
+protoc-bin-vendored = "3"
+tonic-build = "0.12"
+
+[dev-dependencies]
+eventdbx = { path = "../../../eventdbx" }
+tempfile = "3.10"
+base64 = "0.21"
+serde_json = "1.0"
+tokio = { version = "1.45", features = ["macros", "rt-multi-thread"] }

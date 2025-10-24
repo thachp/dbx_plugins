@@ -1,0 +1,105 @@
+syntax = "proto3";
+
+package eventdbx.api;
+
+import "google/protobuf/timestamp.proto";
+
+service EventService {
+  rpc Health (HealthRequest) returns (HealthResponse);
+  rpc ListAggregates (ListAggregatesRequest) returns (ListAggregatesResponse);
+  rpc GetAggregate (GetAggregateRequest) returns (GetAggregateResponse);
+  rpc ListEvents (ListEventsRequest) returns (ListEventsResponse);
+  rpc AppendEvent (AppendEventRequest) returns (AppendEventResponse);
+  rpc VerifyAggregate (VerifyAggregateRequest) returns (VerifyAggregateResponse);
+}
+
+message HealthRequest {}
+
+message HealthResponse {
+  string status = 1;
+}
+
+message ListAggregatesRequest {
+  uint64 skip = 1;
+  uint64 take = 2;
+}
+
+message ListAggregatesResponse {
+  repeated Aggregate aggregates = 1;
+}
+
+message GetAggregateRequest {
+  string aggregate_type = 1;
+  string aggregate_id = 2;
+}
+
+message GetAggregateResponse {
+  Aggregate aggregate = 1;
+}
+
+message ListEventsRequest {
+  string aggregate_type = 1;
+  string aggregate_id = 2;
+  uint64 skip = 3;
+  uint64 take = 4;
+}
+
+message ListEventsResponse {
+  repeated Event events = 1;
+}
+
+message VerifyAggregateRequest {
+  string aggregate_type = 1;
+  string aggregate_id = 2;
+}
+
+message VerifyAggregateResponse {
+  string merkle_root = 1;
+}
+
+message AppendEventRequest {
+  string aggregate_type = 1;
+  string aggregate_id = 2;
+  string event_type = 3;
+  string payload_json = 4;
+  optional string patch_json = 5;
+  optional string note = 6;
+  optional string metadata_json = 7;
+}
+
+message AppendEventResponse {
+  Event event = 1;
+}
+
+message Aggregate {
+  string aggregate_type = 1;
+  string aggregate_id = 2;
+  uint64 version = 3;
+  map<string, string> state = 4;
+  string merkle_root = 5;
+  bool archived = 6;
+}
+
+message Event {
+  string aggregate_type = 1;
+  string aggregate_id = 2;
+  string event_type = 3;
+  uint64 version = 4;
+  string payload_json = 5;
+  EventMetadata metadata = 6;
+  string hash = 7;
+  string merkle_root = 8;
+  optional string extensions_json = 9;
+}
+
+message EventMetadata {
+  string event_id = 1;
+  google.protobuf.Timestamp created_at = 2;
+  ActorClaims issued_by = 3;
+  string note = 4;
+}
+
+message ActorClaims {
+  string group = 1;
+  string user = 2;
+}

@@ -1,0 +1,456 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'dbx_plugin_api'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=dbx_plugin_api"
+                ],
+                "filter": {
+                    "name": "dbx_plugin_api",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'dbx_plugin_logging'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=dbx_plugin_logging"
+                ],
+                "filter": {
+                    "name": "dbx_plugin_logging",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'example'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=example",
+                    "--package=example"
+                ],
+                "filter": {
+                    "name": "example",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'example'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=example",
+                    "--package=example"
+                ],
+                "filter": {
+                    "name": "example",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'dbx_graphql'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=dbx_graphql"
+                ],
+                "filter": {
+                    "name": "dbx_graphql",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'dbx_graphql'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=dbx_graphql",
+                    "--package=dbx_graphql"
+                ],
+                "filter": {
+                    "name": "dbx_graphql",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'dbx_graphql'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=dbx_graphql",
+                    "--package=dbx_graphql"
+                ],
+                "filter": {
+                    "name": "dbx_graphql",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'graphql_regression'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=graphql_regression",
+                    "--package=dbx_graphql"
+                ],
+                "filter": {
+                    "name": "graphql_regression",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'dbx_grpc'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=dbx_grpc"
+                ],
+                "filter": {
+                    "name": "dbx_grpc",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'dbx_grpc'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=dbx_grpc",
+                    "--package=dbx_grpc"
+                ],
+                "filter": {
+                    "name": "dbx_grpc",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'dbx_grpc'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=dbx_grpc",
+                    "--package=dbx_grpc"
+                ],
+                "filter": {
+                    "name": "dbx_grpc",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'grpc_regression'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=grpc_regression",
+                    "--package=dbx_grpc"
+                ],
+                "filter": {
+                    "name": "grpc_regression",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'postgres'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=postgres",
+                    "--package=postgres"
+                ],
+                "filter": {
+                    "name": "postgres",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'postgres'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=postgres",
+                    "--package=postgres"
+                ],
+                "filter": {
+                    "name": "postgres",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'queue'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=queue",
+                    "--package=queue"
+                ],
+                "filter": {
+                    "name": "queue",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'queue'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=queue",
+                    "--package=queue"
+                ],
+                "filter": {
+                    "name": "queue",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'dbx_rest'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=dbx_rest"
+                ],
+                "filter": {
+                    "name": "dbx_rest",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'dbx_rest'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=dbx_rest",
+                    "--package=dbx_rest"
+                ],
+                "filter": {
+                    "name": "dbx_rest",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'dbx_rest'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=dbx_rest",
+                    "--package=dbx_rest"
+                ],
+                "filter": {
+                    "name": "dbx_rest",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug integration test 'rest_regression'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--test=rest_regression",
+                    "--package=dbx_rest"
+                ],
+                "filter": {
+                    "name": "rest_regression",
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'search'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=search",
+                    "--package=search"
+                ],
+                "filter": {
+                    "name": "search",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'search'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=search",
+                    "--package=search"
+                ],
+                "filter": {
+                    "name": "search",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'rest_api'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=rest_api",
+                    "--package=rest_api"
+                ],
+                "filter": {
+                    "name": "rest_api",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'rest_api'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=rest_api",
+                    "--package=rest_api"
+                ],
+                "filter": {
+                    "name": "rest_api",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

@@ -1,0 +1,21 @@
+[workspace]
+members = [
+    "common/plugin_api",
+    "common/logging",
+    "plugins/*",
+]
+resolver = "2"
+
+[package]
+name = "rest_api"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "EventDBX plugin workspace that hosts shared crates and downstream agents."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/thachp/dbx_plugins"
+keywords = ["eventdbx", "plugins"]
+
+[dependencies]
+dbx_plugin_api = { path = "common/plugin_api" }

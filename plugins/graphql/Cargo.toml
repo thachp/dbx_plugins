@@ -1,0 +1,34 @@
+[package]
+name = "dbx_graphql"
+version = "0.1.0"
+edition = "2021"
+description = "GraphQL agent that exposes EventDBX event streams over async-graphql and Axum."
+readme = "README.md"
+repository = "https://github.com/thachp/dbx_plugins"
+keywords = ["eventdbx", "graphql", "async"]
+categories = ["database"]
+authors = ["Patrick Thach <thachp@gmail.com>"]
+license = "MIT"
+
+[dependencies]
+anyhow = "1.0"
+async-graphql = { version = "7.0", features = ["chrono", "uuid"] }
+async-graphql-axum = "7.0"
+axum = { version = "0.8", features = ["macros", "json"] }
+clap = { version = "4.5", features = ["derive"] }
+dbx_plugin_api = { path = "../../common/plugin_api" }
+dbx_plugin_logging = { path = "../../common/logging" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.45", features = ["rt-multi-thread", "macros", "signal", "net"] }
+tokio-util = { version = "0.7", features = ["compat"] }
+tower-http = { version = "0.5", features = ["trace"] }
+tracing = "0.1"
+
+[dev-dependencies]
+eventdbx = { path = "../../../eventdbx" }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+tempfile = "3.10"
+base64 = "0.21"
+tokio = { version = "1.45", features = ["macros", "rt-multi-thread"] }
+serde_json = "1.0"

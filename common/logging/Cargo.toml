@@ -1,0 +1,22 @@
+[package]
+name = "dbx_plugin_logging"
+version = "0.1.0"
+edition = "2021"
+description = "Shared tracing setup for EventDBX plugins, including file/console appender helpers."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/eventdbx/dbx_plugins"
+keywords = ["eventdbx", "logging", "tracing"]
+categories = ["development-tools"]
+
+[dependencies]
+anyhow = "1.0"
+chrono = "0.4"
+dirs = "5.0"
+parking_lot = "0.12"
+tracing = "0.1"
+tracing-appender = "0.2"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+[dev-dependencies]
+tempfile = "3.10"
