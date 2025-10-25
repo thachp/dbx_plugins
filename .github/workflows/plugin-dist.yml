@@ -85,81 +85,49 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Install Cap'n Proto (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y capnproto
+
+      - name: Install Cap'n Proto (macOS)
+        if: runner.os == 'macOS'
+        run: brew install capnp
+
+      - name: Install Cap'n Proto (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: choco install capnproto --yes
+
       - name: Cache cargo build artefacts
         uses: Swatinem/rust-cache@v2
 
-      - name: Install cargo-dist
+      - name: Build release binary
         run: |
           set -euo pipefail
-          INSTALL_ROOT="$RUNNER_TEMP/cargo-dist"
-          cargo install cargo-dist --locked --root "$INSTALL_ROOT"
-          echo "$INSTALL_ROOT/bin" >> "$GITHUB_PATH"
-          echo "CARGO_DIST_BIN=$INSTALL_ROOT/bin/cargo-dist" >> "$GITHUB_ENV"
-        shell: bash
-
-      - name: Resolve package version
-        id: package-version
-        env:
-          PACKAGE: ${{ matrix.package }}
-        run: python3 .github/scripts/get_package_version.py --package "$PACKAGE"
-        shell: bash
-
-      - name: Build release artefacts
-        env:
-          VERSION: ${{ steps.package-version.outputs.version }}
-          CARGO_DIST_BIN: ${{ env.CARGO_DIST_BIN }}
-        run: |
-          set -euo pipefail
-          DIST_BIN="${CARGO_DIST_BIN:-$(command -v cargo-dist || true)}"
-          if [ ! -x "${DIST_BIN}" ]; then
-            echo "cargo-dist binary not found (expected at ${DIST_BIN:-<none>})" >&2
-            exit 1
-          fi
-          TAG="${PACKAGE}-${VERSION}"
-          mkdir -p target/dist
-          PLAN_FILE="target/dist/${PACKAGE}-${VERSION}-${DIST_TARGET}-plan.json"
-          "$DIST_BIN" plan --artifacts=all --ci github --target "$DIST_TARGET" --tag "$TAG" --allow-dirty --output-format=json --no-local-paths > "$PLAN_FILE"
-          "$DIST_BIN" build --artifacts=local --ci github --target "$DIST_TARGET" --tag "$TAG" --allow-dirty
-        shell: bash
-
-      - name: Build global artefacts (linux only)
-        if: matrix.target == 'x86_64-unknown-linux-gnu'
-        env:
-          VERSION: ${{ steps.package-version.outputs.version }}
-          CARGO_DIST_BIN: ${{ env.CARGO_DIST_BIN }}
-        run: |
-          set -euo pipefail
-          DIST_BIN="${CARGO_DIST_BIN:-$(command -v cargo-dist || true)}"
-          if [ ! -x "${DIST_BIN}" ]; then
-            echo "cargo-dist binary not found (expected at ${DIST_BIN:-<none>})" >&2
-            exit 1
-          fi
-          TAG="${PACKAGE}-${VERSION}"
-          "$DIST_BIN" build --artifacts=global --ci github --tag "$TAG" --allow-dirty
+          cargo build -p "$PACKAGE" --release --target "$DIST_TARGET"
         shell: bash
 
       - name: Upload dist artefacts
         id: upload
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.package }}-${{ steps.package-version.outputs.version }}-${{ matrix.target }}
-          path: target/dist
+          name: ${{ matrix.package }}-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release
           if-no-files-found: error
 
       - name: Record artifact location
         if: success()
         env:
-          VERSION: ${{ steps.package-version.outputs.version }}
           ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
           ARTIFACT_API_URL: ${{ steps.upload.outputs.artifact-url }}
           REPOSITORY: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
         run: |
           set -euo pipefail
-          MESSAGE="Artifact ${PACKAGE} v${VERSION} (${DIST_TARGET}) uploaded: ${ARTIFACT_API_URL}"
+          MESSAGE="Artifact ${PACKAGE} (${DIST_TARGET}) uploaded: ${ARTIFACT_API_URL}"
           echo "::notice::${MESSAGE}"
           {
-            echo "### ${PACKAGE} v${VERSION} (${DIST_TARGET})"
+            echo "### ${PACKAGE} (${DIST_TARGET})"
             echo ""
             echo "- Artifact URL: ${ARTIFACT_API_URL}"
             echo "- Artifact ID: ${ARTIFACT_ID}"
