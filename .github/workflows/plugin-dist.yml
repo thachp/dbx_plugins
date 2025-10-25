@@ -107,11 +107,23 @@ jobs:
           VERSION: ${{ steps.package-version.outputs.version }}
         run: |
           set -euo pipefail
+          DIST_BIN="$(command -v cargo-dist || true)"
+          if [ -z "$DIST_BIN" ]; then
+            CARGO_BIN_DIR="${CARGO_HOME:-$HOME/.cargo}/bin"
+            if [ -x "${CARGO_BIN_DIR}/cargo-dist" ]; then
+              DIST_BIN="${CARGO_BIN_DIR}/cargo-dist"
+            elif [ -x "${CARGO_BIN_DIR}/cargo-dist.exe" ]; then
+              DIST_BIN="${CARGO_BIN_DIR}/cargo-dist.exe"
+            else
+              echo "cargo-dist binary not found in PATH or ${CARGO_BIN_DIR}" >&2
+              exit 1
+            fi
+          fi
           TAG="${PACKAGE}-${VERSION}"
           mkdir -p target/dist
           PLAN_FILE="target/dist/${PACKAGE}-${VERSION}-${DIST_TARGET}-plan.json"
-          cargo dist plan --artifacts=all --ci github --target "$DIST_TARGET" --tag "$TAG" --allow-dirty --output-format=json --no-local-paths > "$PLAN_FILE"
-          cargo dist build --artifacts=local --ci github --target "$DIST_TARGET" --tag "$TAG" --allow-dirty
+          "$DIST_BIN" plan --artifacts=all --ci github --target "$DIST_TARGET" --tag "$TAG" --allow-dirty --output-format=json --no-local-paths > "$PLAN_FILE"
+          "$DIST_BIN" build --artifacts=local --ci github --target "$DIST_TARGET" --tag "$TAG" --allow-dirty
         shell: bash
 
       - name: Build global artefacts (linux only)
@@ -120,8 +132,20 @@ jobs:
           VERSION: ${{ steps.package-version.outputs.version }}
         run: |
           set -euo pipefail
+          DIST_BIN="$(command -v cargo-dist || true)"
+          if [ -z "$DIST_BIN" ]; then
+            CARGO_BIN_DIR="${CARGO_HOME:-$HOME/.cargo}/bin"
+            if [ -x "${CARGO_BIN_DIR}/cargo-dist" ]; then
+              DIST_BIN="${CARGO_BIN_DIR}/cargo-dist"
+            elif [ -x "${CARGO_BIN_DIR}/cargo-dist.exe" ]; then
+              DIST_BIN="${CARGO_BIN_DIR}/cargo-dist.exe"
+            else
+              echo "cargo-dist binary not found in PATH or ${CARGO_BIN_DIR}" >&2
+              exit 1
+            fi
+          fi
           TAG="${PACKAGE}-${VERSION}"
-          cargo dist build --artifacts=global --ci github --tag "$TAG" --allow-dirty
+          "$DIST_BIN" build --artifacts=global --ci github --tag "$TAG" --allow-dirty
         shell: bash
 
       - name: Upload dist artefacts
