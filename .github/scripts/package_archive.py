@@ -21,9 +21,9 @@ def build_archive(
     if not release_dir.exists():
         raise FileNotFoundError(f"release directory does not exist: {release_dir}")
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-    archive_name = f"{package}-{version}-{target}.zip"
-    archive_path = output_dir / archive_name
+    package_dir = output_dir / package / version
+    package_dir.mkdir(parents=True, exist_ok=True)
+    archive_path = package_dir / f"{target}.zip"
 
     with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED) as zf:
         for path in release_dir.rglob("*"):
@@ -68,7 +68,7 @@ def main() -> int:
         print(str(exc), file=sys.stderr)
         return 1
 
-    print(archive_path.name, end="")
+    print(str(archive_path), end="")
     return 0
 
 

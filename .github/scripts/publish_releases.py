@@ -14,9 +14,6 @@ import sys
 from collections import defaultdict
 
 
-ARTIFACT_PATTERN = re.compile(r"^(?P<package>[^-]+)-(?P<version>[^-]+)-(?P<target>.+)\.zip$")
-
-
 def run(cmd: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
     return subprocess.run(cmd, check=check, text=True, capture_output=True)
 
@@ -60,12 +57,12 @@ def main() -> int:
     versions_by_package: dict[str, str] = {}
 
     for artifact_path in artifact_root.rglob("*.zip"):
-        match = ARTIFACT_PATTERN.match(artifact_path.name)
-        if not match:
-            print(f"Skipping unrecognized artifact: {artifact_path}", file=sys.stderr)
+        artifact_dir = artifact_path.parent.name
+        parts = artifact_dir.split("__", 2)
+        if len(parts) != 3:
+            print(f"Skipping artifact with unexpected name '{artifact_dir}'", file=sys.stderr)
             continue
-        package = match.group("package")
-        version = match.group("version")
+        package, version, target = parts
         artifacts_by_package[package].append(artifact_path)
         versions_by_package.setdefault(package, version)
 

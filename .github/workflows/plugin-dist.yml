@@ -136,22 +136,29 @@ jobs:
           VERSION: ${{ steps.package-version.outputs.version }}
         run: |
           set -euo pipefail
-          ARCHIVE_NAME=$(python3 .github/scripts/package_archive.py \
+          ARCHIVE_PATH=$(python3 .github/scripts/package_archive.py \
             --package "$PACKAGE" \
             --version "$VERSION" \
             --target "$DIST_TARGET" \
             --release-dir "target/$DIST_TARGET/release" \
             --output-dir "target/artifacts")
+          ARCHIVE_NAME=$(basename "$ARCHIVE_PATH")
+          UPLOAD_DIR="target/artifact_uploads/${PACKAGE}__${VERSION}__${DIST_TARGET}"
+          UPLOAD_PATH="${UPLOAD_DIR}/${ARCHIVE_NAME}"
+          mkdir -p "$UPLOAD_DIR"
+          cp "$ARCHIVE_PATH" "$UPLOAD_PATH"
           echo "archive_name=$ARCHIVE_NAME" >> "$GITHUB_OUTPUT"
           echo "ARCHIVE_NAME=$ARCHIVE_NAME" >> "$GITHUB_ENV"
+          echo "ARCHIVE_PATH=$ARCHIVE_PATH" >> "$GITHUB_ENV"
+          echo "UPLOAD_PATH=$UPLOAD_PATH" >> "$GITHUB_ENV"
         shell: bash
 
       - name: Upload dist artefacts
         id: upload
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.package }}-${{ steps.package-version.outputs.version }}-${{ matrix.target }}
-          path: target/artifacts/${{ env.ARCHIVE_NAME }}
+          name: ${{ matrix.package }}__${{ steps.package-version.outputs.version }}__${{ matrix.target }}
+          path: ${{ env.UPLOAD_PATH }}
           if-no-files-found: error
 
       - name: Record artifact location
