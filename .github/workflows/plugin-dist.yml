@@ -89,7 +89,10 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Install cargo-dist
-        run: cargo install cargo-dist --locked
+        run: |
+          set -euo pipefail
+          cargo install cargo-dist --locked
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
         shell: bash
 
       - name: Resolve package version
