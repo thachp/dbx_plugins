@@ -13,6 +13,7 @@ struct PluginInit {
   pluginName @0 :Text;
   version @1 :Text;
   target @2 :Text;
+  transport @3 :Text;
 }
 
 struct PluginEvent {

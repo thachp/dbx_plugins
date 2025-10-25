@@ -125,15 +125,58 @@ pub struct PluginContext {
     pub plugin_name: String,
     pub version: String,
     pub target: String,
+    pub transport: PluginTransport,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PluginTransport {
+    Http,
+    Tcp,
+    Capnp,
+    Grpc,
+    Unknown(String),
+}
+
+impl Default for PluginTransport {
+    fn default() -> Self {
+        PluginTransport::Capnp
+    }
+}
+
+impl PluginTransport {
+    fn from_str(value: &str) -> Self {
+        match value {
+            "" => PluginTransport::default(),
+            "http" => PluginTransport::Http,
+            "tcp" => PluginTransport::Tcp,
+            "capnp" => PluginTransport::Capnp,
+            "grpc" => PluginTransport::Grpc,
+            other => PluginTransport::Unknown(other.to_string()),
+        }
+    }
+
+    /// Return a lowercase identifier for transport. Unknown transports echo original value.
+    pub fn as_str(&self) -> &str {
+        match self {
+            PluginTransport::Http => "http",
+            PluginTransport::Tcp => "tcp",
+            PluginTransport::Capnp => "capnp",
+            PluginTransport::Grpc => "grpc",
+            PluginTransport::Unknown(value) => value.as_str(),
+        }
+    }
 }
 
 impl PluginContext {
     /// Build a context from the Cap'n Proto `PluginInit` message.
     pub fn from_capnp(reader: plugin_capnp::plugin_init::Reader<'_>) -> Result<Self, PluginError> {
+        let transport_raw = reader.get_transport().unwrap_or("");
         Ok(Self {
             plugin_name: reader.get_plugin_name()?.to_string(),
             version: reader.get_version()?.to_string(),
             target: reader.get_target()?.to_string(),
+            transport: PluginTransport::from_str(transport_raw),
         })
     }
 }

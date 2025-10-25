@@ -1,9 +1,9 @@
 [package]
-name = "search"
+name = "dbx_search"
 version = "0.1.0"
 edition = "2021"
 description = "Scaffold for indexing EventDBX records into external search services."
-license = "MIT OR Apache-2.0"
+license = "MIT"
 readme = "README.md"
 repository = "https://github.com/eventdbx/dbx_plugins"
 keywords = ["eventdbx", "search", "indexing"]

@@ -1,0 +1,96 @@
+name: plugin-dist
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - '*'
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  dist:
+    name: Build ${{ matrix.package }} @ ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - dbx_example
+          - dbx_graphql
+          - dbx_grpc
+          - dbx_rest
+          - queue
+          - postgres
+          - search
+        target:
+          - x86_64-unknown-linux-gnu
+          - x86_64-apple-darwin
+          - aarch64-apple-darwin
+          - x86_64-pc-windows-msvc
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: x86_64-apple-darwin
+            os: macos-latest
+          - target: aarch64-apple-darwin
+            os: macos-14
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+
+    env:
+      PACKAGE: ${{ matrix.package }}
+      DIST_TARGET: ${{ matrix.target }}
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo build artefacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-dist
+        run: cargo install cargo-dist --locked
+        shell: bash
+
+      - name: Resolve package version
+        id: package-version
+        run: |
+          set -euo pipefail
+          PKGID=$(cargo pkgid -p "$PACKAGE")
+          VERSION=${PKGID##*:}
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+        shell: bash
+
+      - name: Build release artefacts
+        env:
+          VERSION: ${{ steps.package-version.outputs.version }}
+        run: |
+          set -euo pipefail
+          TAG="${PACKAGE}-${VERSION}"
+          mkdir -p target/dist
+          PLAN_FILE="target/dist/${PACKAGE}-${VERSION}-${DIST_TARGET}-plan.json"
+          cargo dist plan --artifacts=all --ci github --target "$DIST_TARGET" --tag "$TAG" --allow-dirty --output-format=json --no-local-paths > "$PLAN_FILE"
+          cargo dist build --artifacts=local --ci github --target "$DIST_TARGET" --tag "$TAG" --allow-dirty
+        shell: bash
+
+      - name: Build global artefacts (linux only)
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        env:
+          VERSION: ${{ steps.package-version.outputs.version }}
+        run: |
+          set -euo pipefail
+          TAG="${PACKAGE}-${VERSION}"
+          cargo dist build --artifacts=global --ci github --tag "$TAG" --allow-dirty
+        shell: bash
+
+      - name: Upload dist artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.package }}-${{ steps.package-version.outputs.version }}-${{ matrix.target }}
+          path: target/dist
+          if-no-files-found: error

@@ -62,11 +62,12 @@ fn listen_and_print<R: Read>(input: R) -> Result<()> {
                     .context("failed to read PluginEnvelope root")?;
                 handle_envelope(envelope)?;
             }
-            Err(capnp::Error::Io { ref error }) if error.kind() == io::ErrorKind::UnexpectedEof => {
-                break;
+            Err(err) => {
+                if err.kind == capnp::ErrorKind::Failed {
+                    break;
+                }
+                return Err(err.into());
             }
-            Err(capnp::Error::Failed { .. }) => break,
-            Err(err) => return Err(err.into()),
         }
     }
 
@@ -83,8 +84,11 @@ fn handle_envelope(envelope: plugin_capnp::plugin_envelope::Reader<'_>) -> Resul
             let init = init.context("missing init payload")?;
             let ctx = PluginContext::from_capnp(init)?;
             println!(
-                "[INIT] plugin={} version={} target={}",
-                ctx.plugin_name, ctx.version, ctx.target
+                "[INIT] plugin={} version={} target={} transport={}",
+                ctx.plugin_name,
+                ctx.version,
+                ctx.target,
+                ctx.transport.as_str()
             );
         }
         plugin_capnp::plugin_envelope::message::Event(event) => {

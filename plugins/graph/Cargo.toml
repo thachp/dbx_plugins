@@ -1,12 +1,12 @@
 [package]
-name = "postgres"
+name = "dbx_graph"
 version = "0.1.0"
 edition = "2021"
-description = "Scaffold for an EventDBX agent that writes event records into Postgres tables."
+description = "Scaffold for streaming EventDBX records into message queue backends."
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/eventdbx/dbx_plugins"
-keywords = ["eventdbx", "postgres", "database"]
+keywords = ["eventdbx", "queue", "streaming"]
 categories = ["database"]
 publish = false
 
