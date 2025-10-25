@@ -184,3 +184,30 @@ jobs:
             echo ""
           } >> "$GITHUB_STEP_SUMMARY"
         shell: bash
+
+  publish:
+    name: Publish releases
+    needs:
+      - dist
+      - detect
+    if: needs.detect.outputs.has-packages == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      PACKAGES_JSON: ${{ needs.detect.outputs.packages }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download built artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: publish_artifacts
+
+      - name: Publish GitHub releases
+        run: python3 .github/scripts/publish_releases.py
