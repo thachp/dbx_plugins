@@ -1,0 +1,66 @@
+name: plugin-test
+
+on:
+  pull_request:
+    branches:
+      - develop
+  workflow_dispatch:
+
+jobs:
+  detect:
+    name: Detect changed plugins
+    runs-on: ubuntu-latest
+    outputs:
+      packages: ${{ steps.packages.outputs.packages }}
+      has-packages: ${{ steps.packages.outputs.has-packages }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine base revision
+        id: base
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          BASE_SHA=${PR_BASE_SHA:-}
+          echo "Base revision: ${BASE_SHA:-<none>}"
+          echo "sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
+        shell: bash
+
+      - name: Determine packages requiring test
+        id: packages
+        env:
+          BASE_SHA: ${{ steps.base.outputs.sha }}
+        run: python3 .github/scripts/detect_changed_plugins.py
+        shell: bash
+
+  test:
+    name: Test ${{ matrix.package }}
+    needs: detect
+    if: needs.detect.outputs.has-packages == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJson(needs.detect.outputs.packages) }}
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo build artefacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Cargo test
+        env:
+          PACKAGE: ${{ matrix.package }}
+        run: |
+          set -euo pipefail
+          cargo test -p "$PACKAGE"
+        shell: bash

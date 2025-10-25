@@ -6,7 +6,6 @@ on:
       - main
     tags:
       - '*'
-  pull_request:
   workflow_dispatch:
 
 jobs:
@@ -95,11 +94,9 @@ jobs:
 
       - name: Resolve package version
         id: package-version
-        run: |
-          set -euo pipefail
-          PKGID=$(cargo pkgid -p "$PACKAGE")
-          VERSION=${PKGID##*:}
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+        env:
+          PACKAGE: ${{ matrix.package }}
+        run: python3 .github/scripts/get_package_version.py --package "$PACKAGE"
         shell: bash
 
       - name: Build release artefacts
@@ -138,17 +135,18 @@ jobs:
           VERSION: ${{ steps.package-version.outputs.version }}
           ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
           ARTIFACT_API_URL: ${{ steps.upload.outputs.artifact-url }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
         run: |
           set -euo pipefail
-          OUTPUT_DIR="target/dist-meta/${PACKAGE}"
-          mkdir -p "$OUTPUT_DIR"
-          META_FILE="${OUTPUT_DIR}/v${VERSION}-${DIST_TARGET}.json"
-          printf '{\n' > "$META_FILE"
-          printf '  "package": "%s",\n' "${PACKAGE}" >> "$META_FILE"
-          printf '  "version": "%s",\n' "${VERSION}" >> "$META_FILE"
-          printf '  "target": "%s",\n' "${DIST_TARGET}" >> "$META_FILE"
-          printf '  "artifact_id": "%s",\n' "${ARTIFACT_ID}" >> "$META_FILE"
-          printf '  "artifact_url": "%s"\n' "${ARTIFACT_API_URL}" >> "$META_FILE"
-          printf '}\n' >> "$META_FILE"
-          echo "Wrote metadata to ${META_FILE}" >> "$GITHUB_STEP_SUMMARY"
+          MESSAGE="Artifact ${PACKAGE} v${VERSION} (${DIST_TARGET}) uploaded: ${ARTIFACT_API_URL}"
+          echo "::notice::${MESSAGE}"
+          {
+            echo "### ${PACKAGE} v${VERSION} (${DIST_TARGET})"
+            echo ""
+            echo "- Artifact URL: ${ARTIFACT_API_URL}"
+            echo "- Artifact ID: ${ARTIFACT_ID}"
+            echo "- Workflow run: https://github.com/${REPOSITORY}/actions/runs/${RUN_ID}"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
         shell: bash
