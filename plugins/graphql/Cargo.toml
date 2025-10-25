@@ -1,6 +1,6 @@
 [package]
 name = "dbx_graphql"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "GraphQL agent that exposes EventDBX event streams over async-graphql and Axum."
 readme = "README.md"
