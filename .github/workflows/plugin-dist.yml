@@ -91,8 +91,10 @@ jobs:
       - name: Install cargo-dist
         run: |
           set -euo pipefail
-          cargo install cargo-dist --locked
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          INSTALL_ROOT="$RUNNER_TEMP/cargo-dist"
+          cargo install cargo-dist --locked --root "$INSTALL_ROOT"
+          echo "$INSTALL_ROOT/bin" >> "$GITHUB_PATH"
+          echo "CARGO_DIST_BIN=$INSTALL_ROOT/bin/cargo-dist" >> "$GITHUB_ENV"
         shell: bash
 
       - name: Resolve package version
@@ -105,19 +107,13 @@ jobs:
       - name: Build release artefacts
         env:
           VERSION: ${{ steps.package-version.outputs.version }}
+          CARGO_DIST_BIN: ${{ env.CARGO_DIST_BIN }}
         run: |
           set -euo pipefail
-          DIST_BIN="$(command -v cargo-dist || true)"
-          if [ -z "$DIST_BIN" ]; then
-            CARGO_BIN_DIR="${CARGO_HOME:-$HOME/.cargo}/bin"
-            if [ -x "${CARGO_BIN_DIR}/cargo-dist" ]; then
-              DIST_BIN="${CARGO_BIN_DIR}/cargo-dist"
-            elif [ -x "${CARGO_BIN_DIR}/cargo-dist.exe" ]; then
-              DIST_BIN="${CARGO_BIN_DIR}/cargo-dist.exe"
-            else
-              echo "cargo-dist binary not found in PATH or ${CARGO_BIN_DIR}" >&2
-              exit 1
-            fi
+          DIST_BIN="${CARGO_DIST_BIN:-$(command -v cargo-dist || true)}"
+          if [ ! -x "${DIST_BIN}" ]; then
+            echo "cargo-dist binary not found (expected at ${DIST_BIN:-<none>})" >&2
+            exit 1
           fi
           TAG="${PACKAGE}-${VERSION}"
           mkdir -p target/dist
@@ -130,19 +126,13 @@ jobs:
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         env:
           VERSION: ${{ steps.package-version.outputs.version }}
+          CARGO_DIST_BIN: ${{ env.CARGO_DIST_BIN }}
         run: |
           set -euo pipefail
-          DIST_BIN="$(command -v cargo-dist || true)"
-          if [ -z "$DIST_BIN" ]; then
-            CARGO_BIN_DIR="${CARGO_HOME:-$HOME/.cargo}/bin"
-            if [ -x "${CARGO_BIN_DIR}/cargo-dist" ]; then
-              DIST_BIN="${CARGO_BIN_DIR}/cargo-dist"
-            elif [ -x "${CARGO_BIN_DIR}/cargo-dist.exe" ]; then
-              DIST_BIN="${CARGO_BIN_DIR}/cargo-dist.exe"
-            else
-              echo "cargo-dist binary not found in PATH or ${CARGO_BIN_DIR}" >&2
-              exit 1
-            fi
+          DIST_BIN="${CARGO_DIST_BIN:-$(command -v cargo-dist || true)}"
+          if [ ! -x "${DIST_BIN}" ]; then
+            echo "cargo-dist binary not found (expected at ${DIST_BIN:-<none>})" >&2
+            exit 1
           fi
           TAG="${PACKAGE}-${VERSION}"
           "$DIST_BIN" build --artifacts=global --ci github --tag "$TAG" --allow-dirty
