@@ -13,6 +13,7 @@ import os
 import subprocess
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 
 
 @dataclass
@@ -21,20 +22,10 @@ class PackageSpec:
     cargo_toml: str
 
 
-PACKAGES = [
-    PackageSpec("dbx_example", "plugins/example/Cargo.toml"),
-    PackageSpec("dbx_graphql", "plugins/graphql/Cargo.toml"),
-    PackageSpec("dbx_grpc", "plugins/grpc/Cargo.toml"),
-    PackageSpec("dbx_rest", "plugins/rest/Cargo.toml"),
-    PackageSpec("queue", "plugins/queue/Cargo.toml"),
-    PackageSpec("postgres", "plugins/postgres/Cargo.toml"),
-    PackageSpec("search", "plugins/search/Cargo.toml"),
-]
-
-
-def extract_version(toml_text: str) -> str:
-    """Return the value of the version key inside the [package] section."""
+def parse_package_fields(toml_text: str) -> dict[str, str]:
+    """Extract key/value pairs from the [package] section."""
     in_package = False
+    data: dict[str, str] = {}
     for raw_line in toml_text.splitlines():
         stripped = raw_line.strip()
         if not stripped or stripped.startswith("#"):
@@ -42,16 +33,47 @@ def extract_version(toml_text: str) -> str:
         if stripped.startswith("[") and stripped.endswith("]"):
             in_package = stripped == "[package]"
             continue
-        if in_package and stripped.startswith("version"):
+        if in_package and "=" in stripped:
             key, _, value = stripped.partition("=")
-            if not _:
+            key = key.strip()
+            if not key:
                 continue
             version = value.split("#", 1)[0].strip()
-            return version.strip('"')
-    raise ValueError("Unable to locate version inside [package] section")
+            data[key] = version.strip('"')
+    if not data:
+        raise ValueError("Unable to locate [package] section")
+    return data
+
+
+def discover_packages(root: Path) -> list[PackageSpec]:
+    """Return all plugin packages whose name starts with 'dbx_'."""
+    packages: list[PackageSpec] = []
+    for toml_path in sorted(root.glob("*/Cargo.toml")):
+        try:
+            toml_text = toml_path.read_text(encoding="utf-8")
+            fields = parse_package_fields(toml_text)
+            name = fields.get("name")
+            if not name:
+                raise ValueError("missing 'name' in [package]")
+            if not name.startswith("dbx_"):
+                print(
+                    f"[WARN] Skipping {toml_path}: package name '{name}' does not start with 'dbx_'",
+                    file=sys.stderr,
+                )
+                continue
+        except Exception as exc:  # pragma: no cover - defensive
+            print(f"[WARN] Unable to inspect {toml_path}: {exc}", file=sys.stderr)
+            continue
+        packages.append(PackageSpec(name=name, cargo_toml=str(toml_path)))
+    return packages
 
 
 def main() -> int:
+    packages = discover_packages(Path("plugins"))
+    if not packages:
+        print("No plugins with name starting with 'dbx_' found; nothing to schedule.", file=sys.stderr)
+        return 0
+
     base_sha = os.environ.get("BASE_SHA", "").strip()
     changed: list[str] = []
 
@@ -60,12 +82,15 @@ def main() -> int:
 
     if not base_sha:
         note("No base revision detected; scheduling all packages.")
-        changed = [pkg.name for pkg in PACKAGES]
+        changed = [pkg.name for pkg in packages]
     else:
-        for pkg in PACKAGES:
+        for pkg in packages:
             try:
                 with open(pkg.cargo_toml, "r", encoding="utf-8") as handle:
-                    head_version = extract_version(handle.read())
+                    head_fields = parse_package_fields(handle.read())
+                    head_version = head_fields.get("version")
+                    if not head_version:
+                        raise ValueError("missing 'version' in [package]")
             except Exception as exc:  # pragma: no cover - defensive
                 note(f"[{pkg.name}] unable to read current version ({exc}); scheduling.")
                 changed.append(pkg.name)
@@ -76,7 +101,10 @@ def main() -> int:
                     ["git", "show", f"{base_sha}:{pkg.cargo_toml}"],
                     text=True,
                 )
-                base_version = extract_version(old_toml)
+                base_fields = parse_package_fields(old_toml)
+                base_version = base_fields.get("version")
+                if not base_version:
+                    raise ValueError("missing 'version' in base [package]")
             except subprocess.CalledProcessError:
                 note(f"[{pkg.name}] missing from base revision; scheduling.")
                 changed.append(pkg.name)
