@@ -10,20 +10,56 @@ on:
   workflow_dispatch:
 
 jobs:
+  detect:
+    name: Detect changed plugins
+    runs-on: ubuntu-latest
+    outputs:
+      packages: ${{ steps.packages.outputs.packages }}
+      has-packages: ${{ steps.packages.outputs.has-packages }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine base revision
+        id: base
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          NULL_SHA=0000000000000000000000000000000000000000
+          if [ "$EVENT_NAME" = "pull_request" ] && [ -n "$PR_BASE_SHA" ]; then
+            BASE_SHA="$PR_BASE_SHA"
+          elif [ -n "$PUSH_BEFORE" ] && [ "$PUSH_BEFORE" != "$NULL_SHA" ]; then
+            BASE_SHA="$PUSH_BEFORE"
+          elif git rev-parse HEAD^ >/dev/null 2>&1; then
+            BASE_SHA="$(git rev-parse HEAD^)"
+          else
+            BASE_SHA=""
+          fi
+          echo "Base revision: ${BASE_SHA:-<none>}"
+          echo "sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
+        shell: bash
+
+      - name: Determine packages requiring build
+        id: packages
+        env:
+          BASE_SHA: ${{ steps.base.outputs.sha }}
+        run: python3 .github/scripts/detect_changed_plugins.py
+        shell: bash
+
   dist:
     name: Build ${{ matrix.package }} @ ${{ matrix.target }}
+    needs: detect
+    if: needs.detect.outputs.has-packages == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        package:
-          - dbx_example
-          - dbx_graphql
-          - dbx_grpc
-          - dbx_rest
-          - queue
-          - postgres
-          - search
+        package: ${{ fromJson(needs.detect.outputs.packages) }}
         target:
           - x86_64-unknown-linux-gnu
           - x86_64-apple-darwin
@@ -89,8 +125,30 @@ jobs:
         shell: bash
 
       - name: Upload dist artefacts
+        id: upload
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.package }}-${{ steps.package-version.outputs.version }}-${{ matrix.target }}
           path: target/dist
           if-no-files-found: error
+
+      - name: Record artifact location
+        if: success()
+        env:
+          VERSION: ${{ steps.package-version.outputs.version }}
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          ARTIFACT_API_URL: ${{ steps.upload.outputs.artifact-url }}
+        run: |
+          set -euo pipefail
+          OUTPUT_DIR="target/dist-meta/${PACKAGE}"
+          mkdir -p "$OUTPUT_DIR"
+          META_FILE="${OUTPUT_DIR}/v${VERSION}-${DIST_TARGET}.json"
+          printf '{\n' > "$META_FILE"
+          printf '  "package": "%s",\n' "${PACKAGE}" >> "$META_FILE"
+          printf '  "version": "%s",\n' "${VERSION}" >> "$META_FILE"
+          printf '  "target": "%s",\n' "${DIST_TARGET}" >> "$META_FILE"
+          printf '  "artifact_id": "%s",\n' "${ARTIFACT_ID}" >> "$META_FILE"
+          printf '  "artifact_url": "%s"\n' "${ARTIFACT_API_URL}" >> "$META_FILE"
+          printf '}\n' >> "$META_FILE"
+          echo "Wrote metadata to ${META_FILE}" >> "$GITHUB_STEP_SUMMARY"
+        shell: bash
