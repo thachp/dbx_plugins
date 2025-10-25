@@ -1,6 +1,6 @@
 [package]
 name = "dbx_example"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2021"
 description = "CLI example that connects to EventDBX and prints decoded event records."
 license = "MIT"
