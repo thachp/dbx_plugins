@@ -89,17 +89,40 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y capnproto
 
+      - name: Install Rust targets (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          rustup target add x86_64-unknown-linux-gnu
+
       - name: Install Cap'n Proto (macOS)
         if: runner.os == 'macOS'
         run: brew install capnp
+
+      - name: Install Rust targets (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          rustup target add x86_64-apple-darwin aarch64-apple-darwin
 
       - name: Install Cap'n Proto (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: choco install capnproto --yes
 
+      - name: Install Rust targets (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          rustup target add x86_64-pc-windows-msvc
+
       - name: Cache cargo build artefacts
         uses: Swatinem/rust-cache@v2
+
+      - name: Resolve package version
+        id: package-version
+        env:
+          PACKAGE: ${{ matrix.package }}
+        run: python3 .github/scripts/get_package_version.py --package "$PACKAGE"
+        shell: bash
 
       - name: Build release binary
         run: |
@@ -107,29 +130,55 @@ jobs:
           cargo build -p "$PACKAGE" --release --target "$DIST_TARGET"
         shell: bash
 
+      - name: Package release archive
+        id: package-archive
+        env:
+          VERSION: ${{ steps.package-version.outputs.version }}
+        run: |
+          set -euo pipefail
+          ARCHIVE_NAME=$(python3 .github/scripts/package_archive.py \
+            --package "$PACKAGE" \
+            --version "$VERSION" \
+            --target "$DIST_TARGET" \
+            --release-dir "target/$DIST_TARGET/release" \
+            --output-dir "target/artifacts")
+          echo "archive_name=$ARCHIVE_NAME" >> "$GITHUB_OUTPUT"
+          echo "ARCHIVE_NAME=$ARCHIVE_NAME" >> "$GITHUB_ENV"
+        shell: bash
+
       - name: Upload dist artefacts
         id: upload
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.package }}-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release
+          name: ${{ matrix.package }}-${{ steps.package-version.outputs.version }}-${{ matrix.target }}
+          path: target/artifacts/${{ env.ARCHIVE_NAME }}
           if-no-files-found: error
 
       - name: Record artifact location
         if: success()
         env:
+          VERSION: ${{ steps.package-version.outputs.version }}
+          ARCHIVE_NAME: ${{ env.ARCHIVE_NAME }}
           ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
           ARTIFACT_API_URL: ${{ steps.upload.outputs.artifact-url }}
           REPOSITORY: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
+          REF_NAME: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
         run: |
           set -euo pipefail
           MESSAGE="Artifact ${PACKAGE} (${DIST_TARGET}) uploaded: ${ARTIFACT_API_URL}"
           echo "::notice::${MESSAGE}"
+          RELEASE_TAG="$REF_NAME"
+          if [ "$REF_TYPE" != "tag" ] || [ -z "$RELEASE_TAG" ]; then
+            RELEASE_TAG="${PACKAGE}-v${VERSION}"
+          fi
+          RELEASE_URL="https://github.com/${REPOSITORY}/releases/download/${RELEASE_TAG}/${ARCHIVE_NAME}"
           {
-            echo "### ${PACKAGE} (${DIST_TARGET})"
+            echo "### ${PACKAGE} v${VERSION} (${DIST_TARGET})"
             echo ""
             echo "- Artifact URL: ${ARTIFACT_API_URL}"
+            echo "- Release download (expected): ${RELEASE_URL}"
             echo "- Artifact ID: ${ARTIFACT_ID}"
             echo "- Workflow run: https://github.com/${REPOSITORY}/actions/runs/${RUN_ID}"
             echo ""
