@@ -1,6 +1,6 @@
 [package]
 name = "dbx_rest"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "REST agent that publishes EventDBX resources over an Axum HTTP interface."
 readme = "README.md"
