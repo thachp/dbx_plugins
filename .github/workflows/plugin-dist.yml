@@ -116,7 +116,14 @@ jobs:
             scoop bucket add main
           }
           scoop install main/capnp
-          Add-Content -Path $env:GITHUB_PATH -Value (Join-Path (scoop prefix capnp) 'bin')
+          $capnpPrefix = scoop prefix capnp
+          $capnpBin = Join-Path $capnpPrefix 'bin'
+          if (-not (Test-Path $capnpBin)) {
+            $capnpBin = $capnpPrefix
+          }
+          Add-Content -Path $env:GITHUB_PATH -Value (Join-Path $env:USERPROFILE 'scoop\\shims')
+          Add-Content -Path $env:GITHUB_PATH -Value $capnpBin
+          capnp --version
 
       - name: Install Rust targets (Windows)
         if: runner.os == 'Windows'
