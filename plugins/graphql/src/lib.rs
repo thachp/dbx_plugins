@@ -6,10 +6,10 @@ use async_graphql::Json as GqlJson;
 use async_graphql::Result as GqlResult;
 use async_graphql::{EmptySubscription, Object, Schema, SimpleObject};
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
-use axum::Json;
 use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum::routing::get;
+use axum::Json;
 use axum::{Extension, Router};
 use dbx_plugin_api::{ActorClaimsView, AggregateStateView, EventMetadataView, StoredEventRecord};
 use dbx_plugin_api::{

@@ -193,17 +193,21 @@ async fn list_events(
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct AppendEventRequest {
+    #[serde(alias = "aggregate_type")]
     aggregate_type: String,
+    #[serde(alias = "aggregate_id")]
     aggregate_id: String,
+    #[serde(alias = "event_type")]
     event_type: String,
-    #[serde(default)]
+    #[serde(default, alias = "payload")]
     payload: Option<Value>,
-    #[serde(default)]
+    #[serde(default, alias = "patch")]
     patch: Option<Value>,
-    #[serde(default)]
+    #[serde(default, alias = "metadata")]
     metadata: Option<Value>,
-    #[serde(default)]
+    #[serde(default, alias = "note")]
     note: Option<String>,
 }
 
@@ -359,6 +363,7 @@ impl IntoResponse for AppError {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct AggregateResponse {
     aggregate_type: String,
     aggregate_id: String,
@@ -382,6 +387,7 @@ impl From<AggregateStateView> for AggregateResponse {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct EventResponse {
     aggregate_type: String,
     aggregate_id: String,
@@ -412,6 +418,7 @@ impl From<StoredEventRecord> for EventResponse {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct EventMetadataResponse {
     event_id: String,
     created_at: String,
@@ -431,6 +438,7 @@ impl From<EventMetadataView> for EventMetadataResponse {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct ActorClaimsResponse {
     group: String,
     user: String,
@@ -446,6 +454,7 @@ impl From<ActorClaimsView> for ActorClaimsResponse {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct VerifyResponse {
     merkle_root: String,
 }

@@ -11,3 +11,17 @@ categories = ["database"]
 publish = false
 
 [dependencies]
+anyhow = "1"
+capnp = "0.17"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+dbx_plugin_api = { path = "../../common/plugin_api" }
+dbx_plugin_logging = { path = "../../common/logging" }
+dirs = "5"
+num_cpus = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tantivy = { version = "0.19", default-features = false, features = ["mmap"] }
+tracing = "0.1"
+
+[dev-dependencies]
+tempfile = "3"

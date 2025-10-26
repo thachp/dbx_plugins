@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashSet, VecDeque},
+    collections::{HashMap, HashSet, VecDeque},
     path::Path,
     sync::Arc,
 };
@@ -7,10 +7,13 @@ use std::{
 use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
 use parking_lot::Mutex;
-use rocksdb::{ColumnFamilyDescriptor, DBWithThreadMode, MultiThreaded, Options, WriteBatch};
+use rocksdb::{
+    ColumnFamilyDescriptor, DBWithThreadMode, IteratorMode, MultiThreaded, Options, WriteBatch,
+};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{self, Value};
 use snowflake::ProcessUniqueId;
+use tracing::warn;
 
 use super::GraphStorage;
 use crate::model::{EdgeOp, EdgeQuery, GraphEdge, QueryDirection};
@@ -29,11 +32,15 @@ struct StoredEdge {
     tags: Vec<String>,
     weight: Option<f64>,
     confidence: Option<f64>,
-    properties: Value,
+    properties_json: String,
 }
 
 impl From<StoredEdge> for GraphEdge {
     fn from(edge: StoredEdge) -> Self {
+        let properties = serde_json::from_str(&edge.properties_json).unwrap_or_else(|err| {
+            warn!(error = ?err, "failed to parse stored edge properties; defaulting to null");
+            Value::Null
+        });
         GraphEdge {
             id: Some(edge.id),
             from: edge.from,
@@ -42,7 +49,7 @@ impl From<StoredEdge> for GraphEdge {
             tags: edge.tags,
             weight: edge.weight,
             confidence: edge.confidence,
-            properties: edge.properties,
+            properties,
             op: EdgeOp::Upsert,
         }
     }
@@ -52,6 +59,113 @@ impl From<StoredEdge> for GraphEdge {
 struct AdjacencyEntry {
     id: String,
     relation: String,
+    #[serde(default)]
+    neighbor: String,
+    #[serde(default)]
+    weight: Option<f64>,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum NeighborDirection {
+    Outbound,
+    Inbound,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone)]
+pub struct GraphNeighbor {
+    pub edge_id: String,
+    pub relation: String,
+    pub target: String,
+    pub weight: f64,
+    pub direction: NeighborDirection,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone)]
+pub struct SnapshotEdge {
+    pub edge_id: String,
+    pub relation: String,
+    pub target: String,
+    pub weight: f64,
+    pub tags: Vec<String>,
+    pub confidence: Option<f64>,
+    pub direction: NeighborDirection,
+    pub properties: Value,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone)]
+pub struct GraphSnapshot {
+    adjacency: HashMap<String, Vec<SnapshotEdge>>,
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SnapshotOrientation {
+    Outbound,
+    Inbound,
+    Undirected,
+}
+
+impl GraphSnapshot {
+    /// Returns a reference to the internal adjacency map keyed by node id.
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub fn adjacency_map(&self) -> &HashMap<String, Vec<SnapshotEdge>> {
+        &self.adjacency
+    }
+
+    /// Produces a matrix-style adjacency representation suitable for graph algorithms.
+    ///
+    /// The returned tuple contains a stable ordering of node identifiers and a parallel
+    /// adjacency list where each entry is a `(neighbor_index, weight)` pair. This mirrors the
+    /// input expected by `xgraph` clustering algorithms—map node identifiers to contiguous
+    /// indices, then hand the adjacency matrix to the desired routine.
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub fn to_weighted_adjacency(
+        &self,
+        orientation: SnapshotOrientation,
+    ) -> (Vec<String>, Vec<Vec<(usize, f64)>>) {
+        let mut node_ids: Vec<_> = self.adjacency.keys().cloned().collect();
+        node_ids.sort();
+        let index_lookup: HashMap<_, _> = node_ids
+            .iter()
+            .enumerate()
+            .map(|(idx, id)| (id.clone(), idx))
+            .collect();
+
+        let adjacency = node_ids
+            .iter()
+            .map(|node| {
+                self.adjacency
+                    .get(node)
+                    .into_iter()
+                    .flat_map(|edges| edges.iter())
+                    .filter(|edge| orientation.includes(edge.direction))
+                    .filter_map(|edge| {
+                        index_lookup
+                            .get(&edge.target)
+                            .copied()
+                            .map(|neighbor_idx| (neighbor_idx, edge.weight))
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+
+        (node_ids, adjacency)
+    }
+}
+
+impl SnapshotOrientation {
+    #[cfg_attr(not(test), allow(dead_code))]
+    fn includes(self, direction: NeighborDirection) -> bool {
+        match self {
+            SnapshotOrientation::Outbound => direction == NeighborDirection::Outbound,
+            SnapshotOrientation::Inbound => direction == NeighborDirection::Inbound,
+            SnapshotOrientation::Undirected => direction == NeighborDirection::Outbound,
+        }
+    }
 }
 
 pub struct RocksGraph {
@@ -116,8 +230,10 @@ impl RocksGraph {
         }
     }
 
-    fn build_stored(edge_id: String, edge: GraphEdge) -> StoredEdge {
-        StoredEdge {
+    fn build_stored(edge_id: String, edge: GraphEdge) -> Result<StoredEdge> {
+        let properties_json = serde_json::to_string(&edge.properties)
+            .context("failed to serialize edge properties to JSON")?;
+        Ok(StoredEdge {
             id: edge_id,
             from: edge.from,
             to: edge.to,
@@ -125,8 +241,8 @@ impl RocksGraph {
             tags: edge.tags,
             weight: edge.weight,
             confidence: edge.confidence,
-            properties: edge.properties,
-        }
+            properties_json,
+        })
     }
 
     fn get_edge(&self, id: &str) -> Result<Option<StoredEdge>> {
@@ -278,6 +394,158 @@ impl RocksGraph {
             .map(|entry| entry.id)
             .collect())
     }
+
+    #[cfg_attr(not(test), allow(dead_code))]
+    fn collect_neighbors_from_cf(
+        &self,
+        cf: Arc<rocksdb::BoundColumnFamily<'_>>,
+        node: &str,
+        direction: NeighborDirection,
+        seen: &mut HashSet<(String, NeighborDirection)>,
+        output: &mut Vec<GraphNeighbor>,
+    ) -> Result<()> {
+        let entries = self.load_adj_list(cf, node)?;
+        for entry in entries {
+            if !seen.insert((entry.id.clone(), direction)) {
+                continue;
+            }
+
+            if let Some((target, weight)) = self.resolve_adjacent(&entry, direction)? {
+                output.push(GraphNeighbor {
+                    edge_id: entry.id,
+                    relation: entry.relation,
+                    target,
+                    weight,
+                    direction,
+                });
+            }
+        }
+        Ok(())
+    }
+
+    #[cfg_attr(not(test), allow(dead_code))]
+    fn resolve_adjacent(
+        &self,
+        entry: &AdjacencyEntry,
+        direction: NeighborDirection,
+    ) -> Result<Option<(String, f64)>> {
+        let mut neighbor = if entry.neighbor.is_empty() {
+            None
+        } else {
+            Some(entry.neighbor.clone())
+        };
+        let mut weight = entry.weight;
+
+        if neighbor.is_some() && weight.is_some() {
+            return Ok(neighbor.map(|target| (target, weight.unwrap_or(1.0))));
+        }
+
+        match self.get_edge(&entry.id)? {
+            Some(edge) => {
+                if neighbor.is_none() {
+                    neighbor = Some(match direction {
+                        NeighborDirection::Outbound => edge.to.clone(),
+                        NeighborDirection::Inbound => edge.from.clone(),
+                    });
+                }
+                if weight.is_none() {
+                    weight = Some(edge.weight.unwrap_or(1.0));
+                }
+                Ok(neighbor.map(|target| (target, weight.unwrap_or(1.0))))
+            }
+            None => {
+                warn!(
+                    edge_id = entry.id,
+                    "adjacency entry points to missing edge payload"
+                );
+                Ok(None)
+            }
+        }
+    }
+
+    #[cfg_attr(not(test), allow(dead_code))]
+    fn neighbors_internal(
+        &self,
+        node: &str,
+        direction: QueryDirection,
+    ) -> Result<Vec<GraphNeighbor>> {
+        if node.is_empty() {
+            bail!("neighbors query requires a node id");
+        }
+
+        let mut neighbors = Vec::new();
+        let mut seen = HashSet::new();
+
+        if matches!(direction, QueryDirection::Outbound | QueryDirection::Both) {
+            let cf = self.cf_out();
+            self.collect_neighbors_from_cf(
+                cf,
+                node,
+                NeighborDirection::Outbound,
+                &mut seen,
+                &mut neighbors,
+            )?;
+        }
+
+        if matches!(direction, QueryDirection::Inbound | QueryDirection::Both) {
+            let cf = self.cf_in();
+            self.collect_neighbors_from_cf(
+                cf,
+                node,
+                NeighborDirection::Inbound,
+                &mut seen,
+                &mut neighbors,
+            )?;
+        }
+
+        neighbors.sort_by(|a, b| a.edge_id.cmp(&b.edge_id));
+        Ok(neighbors)
+    }
+
+    #[cfg_attr(not(test), allow(dead_code))]
+    fn build_snapshot(&self) -> Result<GraphSnapshot> {
+        let cf = self.cf_edges();
+        let mut adjacency: HashMap<String, Vec<SnapshotEdge>> = HashMap::new();
+        let iter = self.db.iterator_cf(&cf, IteratorMode::Start);
+
+        for item in iter {
+            let (_key, value) = item?;
+            let stored: StoredEdge = Self::deserialize(&value)?;
+            let weight = stored.weight.unwrap_or(1.0);
+            let properties: Value =
+                serde_json::from_str(&stored.properties_json).unwrap_or(Value::Null);
+
+            adjacency
+                .entry(stored.from.clone())
+                .or_default()
+                .push(SnapshotEdge {
+                    edge_id: stored.id.clone(),
+                    relation: stored.relation.clone(),
+                    target: stored.to.clone(),
+                    weight,
+                    tags: stored.tags.clone(),
+                    confidence: stored.confidence,
+                    direction: NeighborDirection::Outbound,
+                    properties: properties.clone(),
+                });
+
+            adjacency
+                .entry(stored.to.clone())
+                .or_default()
+                .push(SnapshotEdge {
+                    edge_id: stored.id.clone(),
+                    relation: stored.relation.clone(),
+                    target: stored.from.clone(),
+                    weight,
+                    tags: stored.tags.clone(),
+                    confidence: stored.confidence,
+                    direction: NeighborDirection::Inbound,
+                    properties: properties.clone(),
+                });
+        }
+
+        Ok(GraphSnapshot { adjacency })
+    }
 }
 
 #[async_trait]
@@ -288,12 +556,19 @@ impl GraphStorage for RocksGraph {
         }
 
         let edge_id = Self::ensure_edge_id(&mut edge);
-        let stored = Self::build_stored(edge_id.clone(), edge);
+        let stored = Self::build_stored(edge_id.clone(), edge)?;
         let entry_out = AdjacencyEntry {
             id: edge_id.clone(),
             relation: stored.relation.clone(),
+            neighbor: stored.to.clone(),
+            weight: stored.weight,
         };
-        let entry_in = entry_out.clone();
+        let entry_in = AdjacencyEntry {
+            id: edge_id.clone(),
+            relation: stored.relation.clone(),
+            neighbor: stored.from.clone(),
+            weight: stored.weight,
+        };
 
         let _guard = self.write_lock.lock();
         let mut batch = WriteBatch::default();
@@ -390,8 +665,138 @@ impl GraphStorage for RocksGraph {
         Ok(results)
     }
 
+    async fn neighbors(&self, node: &str, direction: QueryDirection) -> Result<Vec<GraphNeighbor>> {
+        self.neighbors_internal(node, direction)
+    }
+
+    async fn export_snapshot(&self) -> Result<GraphSnapshot> {
+        self.build_snapshot()
+    }
+
     async fn flush(&self) -> Result<()> {
         self.db.flush().context("failed to flush RocksDB")?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::{EdgeOp, GraphEdge, QueryDirection};
+    use std::collections::HashMap;
+    use tempfile::tempdir;
+
+    fn test_edge(from: &str, to: &str, relation: &str, weight: Option<f64>) -> GraphEdge {
+        GraphEdge {
+            id: None,
+            from: from.to_string(),
+            to: to.to_string(),
+            relation: relation.to_string(),
+            tags: vec!["sample".to_string()],
+            weight,
+            confidence: Some(0.85),
+            properties: Value::Null,
+            op: EdgeOp::Upsert,
+        }
+    }
+
+    #[tokio::test]
+    async fn neighbors_include_weight_and_direction() -> Result<()> {
+        let dir = tempdir().unwrap();
+        let graph = RocksGraph::open(dir.path())?;
+
+        let id_out = graph
+            .upsert_edge(test_edge("n1", "n2", "rel", Some(2.5)))
+            .await?;
+        let id_in = graph
+            .upsert_edge(test_edge("n2", "n1", "rel", None))
+            .await?;
+
+        let outbound = graph.neighbors("n1", QueryDirection::Outbound).await?;
+        assert_eq!(outbound.len(), 1);
+        assert_eq!(outbound[0].target, "n2");
+        assert_eq!(outbound[0].direction, NeighborDirection::Outbound);
+        assert_eq!(outbound[0].relation, "rel");
+        assert_eq!(outbound[0].edge_id, id_out);
+        assert!((outbound[0].weight - 2.5).abs() < f64::EPSILON);
+
+        let inbound = graph.neighbors("n1", QueryDirection::Inbound).await?;
+        assert_eq!(inbound.len(), 1);
+        assert_eq!(inbound[0].target, "n2");
+        assert_eq!(inbound[0].direction, NeighborDirection::Inbound);
+        assert_eq!(inbound[0].relation, "rel");
+        assert_eq!(inbound[0].edge_id, id_in);
+        assert!((inbound[0].weight - 1.0).abs() < f64::EPSILON);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn snapshot_generates_weighted_adjacency() -> Result<()> {
+        let dir = tempdir().unwrap();
+        let graph = RocksGraph::open(dir.path())?;
+        let id_ab = graph
+            .upsert_edge(test_edge("a", "b", "rel", Some(1.2)))
+            .await?;
+        let id_bc = graph
+            .upsert_edge(test_edge("b", "c", "rel", Some(0.4)))
+            .await?;
+
+        let snapshot = graph.export_snapshot().await?;
+        let adjacency = snapshot.adjacency_map();
+        assert!(adjacency.contains_key("a"));
+        assert!(adjacency.contains_key("b"));
+        assert!(adjacency.contains_key("c"));
+
+        let edges_a = adjacency.get("a").unwrap();
+        let edge_ab = edges_a
+            .iter()
+            .find(|edge| edge.edge_id == id_ab && edge.direction == NeighborDirection::Outbound)
+            .expect("missing outbound edge a->b");
+        assert_eq!(edge_ab.relation, "rel");
+        assert_eq!(edge_ab.tags, vec!["sample"]);
+        assert_eq!(edge_ab.confidence, Some(0.85));
+        assert_eq!(edge_ab.properties, Value::Null);
+
+        let edges_b = adjacency.get("b").unwrap();
+        let inbound_ab = edges_b
+            .iter()
+            .find(|edge| edge.edge_id == id_ab && edge.direction == NeighborDirection::Inbound)
+            .expect("missing inbound edge to b from a");
+        assert_eq!(inbound_ab.weight, 1.2);
+
+        let outbound_bc = edges_b
+            .iter()
+            .find(|edge| edge.edge_id == id_bc && edge.direction == NeighborDirection::Outbound)
+            .expect("missing outbound edge b->c");
+        assert_eq!(outbound_bc.weight, 0.4);
+
+        let (nodes, matrix) = snapshot.to_weighted_adjacency(SnapshotOrientation::Outbound);
+        let mut index_map = HashMap::new();
+        for (idx, node) in nodes.iter().enumerate() {
+            index_map.insert(node, idx);
+        }
+
+        // Edge a -> b with weight 1.2
+        let a_idx = *index_map.get(&"a".to_string()).unwrap();
+        assert!(matrix[a_idx]
+            .iter()
+            .any(|(dst, weight)| nodes[*dst] == "b" && (*weight - 1.2).abs() < f64::EPSILON));
+
+        // Edge b -> c with weight 0.4
+        let b_idx = *index_map.get(&"b".to_string()).unwrap();
+        assert!(matrix[b_idx]
+            .iter()
+            .any(|(dst, weight)| nodes[*dst] == "c" && (*weight - 0.4).abs() < f64::EPSILON));
+
+        let (_nodes_inbound, inbound_matrix) =
+            snapshot.to_weighted_adjacency(SnapshotOrientation::Inbound);
+        assert!(!inbound_matrix.is_empty());
+
+        let (_nodes_undirected, undirected_matrix) =
+            snapshot.to_weighted_adjacency(SnapshotOrientation::Undirected);
+        assert!(!undirected_matrix.is_empty());
+
         Ok(())
     }
 }

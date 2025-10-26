@@ -1,0 +1,9 @@
+[package]
+name = "snowflake"
+version = "0.1.0"
+edition = "2021"
+description = "Snowflake-style ID utilities shared across dbx plugins."
+license = "MIT"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }

@@ -689,15 +689,19 @@ pub struct ActorClaimsView {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EventMetadataView {
+    #[serde(alias = "event_id")]
     pub event_id: String,
     #[serde(
         serialize_with = "serde_helpers::serialize_rfc3339",
         deserialize_with = "serde_helpers::deserialize_rfc3339"
     )]
+    #[serde(alias = "created_at")]
     pub created_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(alias = "issued_by")]
     pub issued_by: Option<ActorClaimsView>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(alias = "note")]
     pub note: Option<String>,
 }
 
@@ -705,15 +709,24 @@ pub struct EventMetadataView {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StoredEventRecord {
+    #[serde(alias = "aggregate_type")]
     pub aggregate_type: String,
+    #[serde(alias = "aggregate_id")]
     pub aggregate_id: String,
+    #[serde(alias = "event_type")]
     pub event_type: String,
+    #[serde(alias = "version")]
     pub version: u64,
+    #[serde(alias = "payload")]
     pub payload: JsonValue,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(alias = "extensions")]
     pub extensions: Option<JsonValue>,
+    #[serde(alias = "metadata")]
     pub metadata: EventMetadataView,
+    #[serde(alias = "hash")]
     pub hash: String,
+    #[serde(alias = "merkle_root")]
     pub merkle_root: String,
 }
 

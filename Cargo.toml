@@ -2,6 +2,7 @@
 members = [
     "common/plugin_api",
     "common/logging",
+    "common/snowflake",
     "plugins/*",
 ]
 resolver = "2"

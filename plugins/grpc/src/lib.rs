@@ -342,9 +342,7 @@ fn convert_event(value: StoredEventRecord) -> Result<Event, Status> {
     let payload_json =
         serde_json::to_string(&payload).map_err(|err| Status::internal(err.to_string()))?;
     let extensions_json = extensions
-        .map(|ext| {
-            serde_json::to_string(&ext).map_err(|err| Status::internal(err.to_string()))
-        })
+        .map(|ext| serde_json::to_string(&ext).map_err(|err| Status::internal(err.to_string())))
         .transpose()?;
 
     Ok(Event {
