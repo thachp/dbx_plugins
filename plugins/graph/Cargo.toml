@@ -21,7 +21,7 @@ snowflake = "1"
 tokio = { version = "1.45", features = ["macros", "rt-multi-thread", "signal", "net", "io-util", "time"] }
 tokio-util = { version = "0.7", features = ["compat"] }
 tracing = "0.1"
-rocksdb = { version = "0.22", default-features = false, features = ["zstd"] }
+rocksdb = { version = "0.21", default-features = false, features = ["multi-threaded-cf", "zstd"] }
 num_cpus = "1"
 
 dbx_plugin_api = { path = "../../common/plugin_api" }

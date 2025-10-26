@@ -22,7 +22,7 @@ use fake::{
 };
 use rand::{seq::SliceRandom, thread_rng};
 use reqwest::Client;
-use rest_api::{run as run_rest, Options as RestOptions};
+use dbx_rest::{run as run_rest, Options as RestOptions};
 use serde_json::{json, Value};
 use tempfile::TempDir;
 use tokio::{task::JoinHandle, time::sleep};
@@ -82,6 +82,40 @@ fn random_species() -> &'static str {
 fn random_language() -> &'static str {
     const LANGS: &[&str] = &["en", "es", "fr", "de", "ja", "zh", "pt", "vi"];
     LANGS.choose(&mut thread_rng()).copied().unwrap_or("en")
+}
+
+fn random_diet() -> &'static str {
+    const DIETS: &[&str] = &["herbivore", "carnivore", "omnivore", "insectivore", "piscivore"];
+    DIETS.choose(&mut thread_rng()).copied().unwrap_or("omnivore")
+}
+
+fn random_habitat() -> &'static str {
+    const HABITATS: &[&str] = &[
+        "savanna enclosure",
+        "rainforest dome",
+        "grassland range",
+        "mountain ridge",
+        "wetlands habitat",
+        "coastal lagoon",
+    ];
+    HABITATS
+        .choose(&mut thread_rng())
+        .copied()
+        .unwrap_or("grassland range")
+}
+
+fn random_status() -> &'static str {
+    const STATUSES: &[&str] = &[
+        "healthy",
+        "under observation",
+        "in rehabilitation",
+        "quarantined",
+        "released",
+    ];
+    STATUSES
+        .choose(&mut thread_rng())
+        .copied()
+        .unwrap_or("healthy")
 }
 
 fn allocate_port() -> std::io::Result<u16> {
@@ -199,14 +233,14 @@ async fn rest_person_company_flow() -> TestResult<()> {
     assert!(
         entries
             .iter()
-            .any(|entry| entry["aggregate_type"] == "person"),
+            .any(|entry| entry["aggregateType"] == "person"),
         "person aggregate should be present"
     );
     if counts.companies > 0 {
         assert!(
             entries
                 .iter()
-                .any(|entry| entry["aggregate_type"] == "company"),
+                .any(|entry| entry["aggregateType"] == "company"),
             "company aggregate should be present"
         );
     }
@@ -214,7 +248,7 @@ async fn rest_person_company_flow() -> TestResult<()> {
         assert!(
             entries
                 .iter()
-                .any(|entry| entry["aggregate_type"] == "animal"),
+                .any(|entry| entry["aggregateType"] == "animal"),
             "animal aggregate should be present"
         );
     }
@@ -227,7 +261,7 @@ async fn rest_person_company_flow() -> TestResult<()> {
         .error_for_status()?
         .json()
         .await?;
-    assert_eq!(aggregate["aggregate_type"], "person");
+    assert_eq!(aggregate["aggregateType"], "person");
 
     let verify: Value = client
         .get(format!(
@@ -239,7 +273,7 @@ async fn rest_person_company_flow() -> TestResult<()> {
         .error_for_status()?
         .json()
         .await?;
-    assert!(verify["merkle_root"].as_str().is_some());
+    assert!(verify["merkleRoot"].as_str().is_some());
 
     let target_animal = format!(
         "animal-{index:05}",
@@ -255,7 +289,7 @@ async fn rest_person_company_flow() -> TestResult<()> {
         .await?;
 
     assert_eq!(
-        animal_state["aggregate_id"], target_animal,
+        animal_state["aggregateId"], target_animal,
         "animal aggregate id should match"
     );
     let animal_fields = animal_state["state"]
@@ -339,7 +373,7 @@ async fn seed_people(client: &Client, base_url: &str, token: &str, count: usize)
             token,
             "person",
             &aggregate_id,
-            "person-upserted",
+            "person_created",
             payload,
         )
         .await?;
@@ -372,7 +406,7 @@ async fn seed_companies(
             token,
             "company",
             &aggregate_id,
-            "company-upserted",
+            "company_created",
             payload,
         )
         .await?;
@@ -391,7 +425,15 @@ async fn seed_animals(
         let payload = json!({
             "species": random_species(),
             "tracking_tag": format!("TAG-{}", NumberWithFormat(EN, "#####").fake::<String>()),
-            "notes": Paragraph(2..3).fake::<String>()
+            "notes": Paragraph(2..3).fake::<String>(),
+            "name": Words(1..3).fake::<Vec<String>>().join(" "),
+            "caretaker": format!("{} {}", FirstName().fake::<String>(), LastName().fake::<String>()),
+            "diet": random_diet(),
+            "habitat": random_habitat(),
+            "status": random_status(),
+            "home_region": CityName().fake::<String>(),
+            "weight_kg": NumberWithFormat(EN, "##").fake::<String>(),
+            "favorite_food": Words(1..2).fake::<Vec<String>>().join(" "),
         });
         send_event(
             client,
@@ -399,7 +441,7 @@ async fn seed_animals(
             token,
             "animal",
             &aggregate_id,
-            "animal-upserted",
+            "animal_created",
             payload,
         )
         .await?;
