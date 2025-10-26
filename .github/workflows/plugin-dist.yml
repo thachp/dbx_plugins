@@ -116,6 +116,7 @@ jobs:
             scoop bucket add main
           }
           scoop install main/capnp
+          Add-Content -Path $env:GITHUB_PATH -Value (Join-Path (scoop prefix capnp) 'bin')
 
       - name: Install Rust targets (Windows)
         if: runner.os == 'Windows'
