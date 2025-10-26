@@ -28,7 +28,7 @@ tracing = "0.1"
 
 [dev-dependencies]
 base64 = "0.21"
-eventdbx = { path = "../../../eventdbx" }
+eventdbx = { git = "https://github.com/thachp/eventdbx.git", rev = "82b296df941fa74fa132d052d3cc6336b0c9b7a0" }
 fake = "3"
 rand = { version = "0.8", features = ["std"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
