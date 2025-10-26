@@ -106,7 +106,16 @@ jobs:
       - name: Install Cap'n Proto (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
-        run: choco install capnproto --yes
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          if (-not (Get-Command scoop -ErrorAction SilentlyContinue)) {
+            Invoke-RestMethod get.scoop.sh | Invoke-Expression
+          }
+          if (-not (scoop bucket list | Select-String -Pattern 'main')) {
+            scoop bucket add main
+          }
+          scoop install main/capnp
 
       - name: Install Rust targets (Windows)
         if: runner.os == 'Windows'
